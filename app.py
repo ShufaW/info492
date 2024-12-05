@@ -9,17 +9,16 @@ import time
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-# 初始化情绪分析工具
+
 nltk.download("vader_lexicon")
 sid = SentimentIntensityAnalyzer()
 
-# Flickr API 密钥
+
 API_KEY = "6121804e178a34ebe49444e858987ee5"
 API_SECRET = "0995d081c0eccf00"
 flickr = FlickrAPI(API_KEY, API_SECRET, format="parsed-json")
 
 
-# 评论清洗函数
 def clean_comment_text(text):
     text = html.unescape(text)
     text = re.sub(r"https?://\S+", "", text)
@@ -29,7 +28,6 @@ def clean_comment_text(text):
     return text if len(text) > 3 else None
 
 
-# 情绪分析函数
 def analyze_sentiment(text):
     scores = sid.polarity_scores(text)
     if scores["compound"] >= 0.05:
@@ -41,15 +39,14 @@ def analyze_sentiment(text):
     return sentiment, scores["compound"]
 
 
-# 提取评论函数
 def fetch_comments(photo_ids):
     comment_data = []
-    photo_comment_counts = {}  # 用于记录每张照片的评论数
+    photo_comment_counts = {}
     for photo_id in photo_ids:
         try:
             response = flickr.photos.comments.getList(photo_id=photo_id)
             comments = response.get("comments", {}).get("comment", [])
-            photo_comment_counts[photo_id] = len(comments)  # 记录评论数量
+            photo_comment_counts[photo_id] = len(comments)
             for comment in comments:
                 comment_text = clean_comment_text(comment.get("_content", ""))
                 if comment_text:
@@ -72,7 +69,6 @@ def fetch_comments(photo_ids):
     return pd.DataFrame(comment_data), photo_comment_counts
 
 
-# 搜索照片函数
 def search_for_photos(keyword, start_date, end_date, num_images=100):
     start = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
     end = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp())
@@ -98,7 +94,6 @@ def search_for_photos(keyword, start_date, end_date, num_images=100):
     return photo_data
 
 
-# 绘制情绪趋势图
 def plot_sentiment_trends(comments_df):
     comments_df["date"] = pd.to_datetime(comments_df["date"])
 
@@ -141,10 +136,10 @@ def plot_sentiment_trends(comments_df):
 
 def highlight_emotion_keywords(text, emotion_words):
     """
-    高亮显示情感关键词
-    :param text: 评论文本
-    :param emotion_words: 情感关键词列表
-    :return: 带有高亮效果的 HTML 文本
+    Highlight Sentiment Keywords
+    :param text: comment text
+    :param emotion_words: list of emotion keywords
+    :return: HTML text with highlighting effect
     """
     for word in emotion_words:
         text = re.sub(
@@ -155,38 +150,34 @@ def highlight_emotion_keywords(text, emotion_words):
 
 def analyze_sentiment_with_keywords(text):
     """
-    分析文本情感并提取对情感评分贡献最大的关键词
-    :param text: 输入的评论文本
-    :return: 情感类型、情感分数、情感关键词
+    Analyze the text sentiment and extract the keywords that contribute most to the sentiment score
+    :param text: text of the input comments
+    :return: sentiment type, sentiment score, sentiment keywords
     """
-    # 使用 VADER 分析情感分数
+
     scores = sid.polarity_scores(text)
 
-    # 确定情感类别
     sentiment = "Neutral"
     if scores["compound"] >= 0.05:
         sentiment = "Positive"
     elif scores["compound"] <= -0.05:
         sentiment = "Negative"
 
-    # 提取情感关键词
     words = text.split()
-    emotion_words = []  # 存储情感词
+    emotion_words = []
     for word in words:
-        if word.lower() in sid.lexicon:  # 检查单词是否在 VADER 的情感词典中
+        if word.lower() in sid.lexicon:
             emotion_words.append(word)
 
     return sentiment, scores["compound"], emotion_words
 
 
-# 主程序
 def main():
     st.title("Flickr Sentiment Analysis with Emotion Keywords")
     st.write(
         "Analyze public sentiment on Flickr comments over time based on specific keywords."
     )
 
-    # 用户输入参数
     keyword = st.text_input("Enter keyword (e.g., 'Gaza', 'Palestine'):", "Gaza")
     start_date = st.date_input("Start Date:", datetime(2023, 1, 1))
     end_date = st.date_input("End Date:", datetime(2024, 11, 1))
@@ -206,28 +197,23 @@ def main():
             photo_ids = [photo["id"] for photo in photos]
             comments_df, photo_comment_counts = fetch_comments(photo_ids)
 
-            # 根据评论数量排序，保留前四张照片
+            # Sort by the number of comments and keep the first four photos
             sorted_photos = sorted(
                 photos, key=lambda x: photo_comment_counts.get(x["id"], 0), reverse=True
-            )[
-                :4
-            ]  # 只保留前四张照片
+            )[:4]
 
             st.write("Displaying top 4 photos with most comments...")
 
-            # 分两行两列显示图片和标题
             for i in range(0, len(sorted_photos), 2):
-                cols = st.columns(2)  # 创建两列布局
+                cols = st.columns(2)
                 for j, photo in enumerate(sorted_photos[i : i + 2]):
                     with cols[j]:
-                        # 显示图片和标题
                         st.image(
                             photo["url"],
                             caption=f"{photo['title']} ({photo_comment_counts.get(photo['id'], 0)} comments)",
                             use_column_width=True,
                         )
 
-                        # 评论放在 expander 中
                         with st.expander(
                             f"View Comments for '{photo['title']}'", expanded=False
                         ):
@@ -250,7 +236,6 @@ def main():
                                     unsafe_allow_html=True,
                                 )
 
-            # 显示情感分析趋势
             if not comments_df.empty:
                 st.success("Analysis complete!")
                 st.write("### Sentiment Analysis Results")
